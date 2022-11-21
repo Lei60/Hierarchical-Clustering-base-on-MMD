@@ -1,0 +1,33 @@
+from MMD_loss import mmd
+import torch
+
+
+def get_distanceMap(points):
+    distanceMap = {}
+    for i in range(len(points)):
+        for j in range(i + 1, len(points)):
+            distanceMap[str(points[i][1]) + '#' + str(points[j][1])] = mmd(points[i][0], points[j][0])
+    distanceMap = sorted(distanceMap.items(), key=lambda dist: dist[1], reverse=False)
+    return distanceMap
+
+
+def MMD_HierarchicalClustering(points, cluster_n):
+    """
+    The input data must be tensor！
+    """
+    points = [[points[i], str(i)] for i in range(len(points))]
+    while len(points) > cluster_n:
+        distanceMap = get_distanceMap(points)
+        index = distanceMap[0][0].split('#')
+        sign = '$'.join(index)
+        group = []
+        for ind in index:
+            del_list = []
+            for i in range(len(points)):
+                if ind == points[i][1]:
+                    group.append(points[i][0])
+                    del_list.append(i)
+            del points[del_list[0]]
+        group = [torch.cat([g for g in group]), sign]
+        points.append(group)
+    return points
