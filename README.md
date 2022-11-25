@@ -1,4 +1,4 @@
-# Hierarchical-Clustering-base-on-MMD
+# Hierarchical-Clustering-based-on-MMD
 Using MMD to calculate the similarity
 
 基于mmd的层聚类方法
