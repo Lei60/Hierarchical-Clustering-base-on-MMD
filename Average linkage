@@ -1,0 +1,86 @@
+from MMD_n import mmd
+import torch
+
+
+def get_distanceMap(points):
+    distanceMap = {}
+    for i in range(len(points)):
+        for j in range(i + 1, len(points)):
+            distanceMap[str(points[i][1]) + '#' + str(points[j][1])] = mmd(points[i][0], points[j][0])
+    return distanceMap
+
+
+def get_distance(g_1, g_2, dis_map):
+    g_1, g_2 = g_1.split('$'), g_2.split('$')
+    g_list = []
+    for i in g_1:
+        for j in g_2:
+            z = max(int(i), int(j))
+            p = min(int(i), int(j))
+            _ = int(z) - int(p) - 1
+            dist_data = dis_map[int(p)][int(_)]
+            g_list.append(dist_data[1])
+    g_list = torch.stack(g_list)
+    distance = torch.mean(g_list)
+    return distance
+
+
+def update_distance(g, distanceMap, dist_map):
+    index = g.split('#')
+    sign = '$'.join(index)
+    del_list = []
+    for i in distanceMap:
+        ind = i.split('#')
+        for q in ind:
+            if q in index:
+                del_list.append(i)
+    del_list = set(del_list)
+    for dl in del_list:
+        del distanceMap[dl]
+    if len(distanceMap) < 1:
+        g_1, g_2 = g.split('#')
+        distanceMap[str(g)] = get_distance(g_1, g_2, dist_map)
+        return distanceMap
+    remain_index = [c[0].split('#') for c in distanceMap.items()]
+    remain_index = set([i for c in remain_index for i in c])
+    for re in remain_index:
+        distanceMap[str(sign) + '#' + str(re)] = get_distance(sign, re, dist_map)
+    return distanceMap
+
+
+def MMD_HierarchicalClustering(points, cluster_n):
+    points = [[points[i], str(i)] for i in range(len(points))]
+    distanceMap = get_distanceMap(points)
+    distanceMap_1 = list(distanceMap.items())
+    dis_map = []
+    for i in range(len(points)):
+        cache = []
+        for dist in distanceMap_1:
+            d = dist[0].split('#')
+            if str(i) == d[0]:
+                cache.append(dist)
+        dis_map.append(cache)
+    while len(distanceMap) >= cluster_n:
+        result = sorted(distanceMap.items(), key=lambda dist: dist[1], reverse=False)
+        distanceMap = update_distance(result[0][0], distanceMap, dis_map)
+    return distanceMap
+
+
+def main():
+    """
+    The input data must be tensor！
+    """
+    class_v = torch.load('class_v')
+    index = torch.randperm(len(class_v[0]))
+    index = index[:250]
+    class_v = class_v[:100]
+    points = [torch.cat([class_v[i][ind].unsqueeze(0) for ind in index]) for i in range(len(class_v))]
+    distance_map = MMD_HierarchicalClustering(points, cluster_n=2)
+    cluster = list(distance_map.items())
+    cluster_1, cluster_2 = cluster[0][0].split('#')
+    print(cluster_1)
+    print(cluster_2)
+    
+if __name__ == '__main__':
+    main()
+    
